@@ -1,0 +1,217 @@
+ <!-- Task3 by Max-Heep -->
+  <!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مجدول المهام لنظام التشغيل (Task Scheduler)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+    body { font-family: 'Tajawal', sans-serif; }
+    .task-card { transition: all 0.3s ease; }
+  </style>
+</head>
+<body class="bg-white text-slate-800 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-slate-50 border-b border-slate-200 py-4 px-6 shadow-sm">
+    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
+      <div class="flex items-center gap-3">
+        <div class="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
+          <i class="fa-solid fa-microchip text-2xl"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold text-slate-900">مجدول المهام (Task Scheduler)</h1>
+          <p class="text-xs text-slate-500">محاكاة مجدول نظام تشغيل باستخدام Max-Heap وأولويات التنفيذ</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    
+    <!-- Control Panel -->
+    <div class="lg:col-span-1 space-y-6 bg-slate-50 p-5 rounded-2xl border border-slate-200 h-fit">
+      <h2 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+        <i class="fa-solid fa-plus-circle text-indigo-600"></i> إضافة مهمة جديدة (INSERT)
+      </h2>
+      
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">اسم المهمة</label>
+          <input id="task-name" type="text" placeholder="مثال: تحديث النظام" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">درجة الأولوية (Priority)</label>
+          <input id="task-priority" type="number" min="1" max="100" value="10" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600">
+          <span class="text-[10px] text-slate-400 mt-1 block">كلما زاد الرقم، كانت الأولوية أعلى للتنفيذ الفوري.</span>
+        </div>
+
+        <button id="btn-add" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-xl transition shadow-sm flex items-center justify-center gap-2">
+          <i class="fa-solid fa-arrow-up-from-bracket"></i> إدخال المهمة (Insert)
+        </button>
+      </div>
+
+      <div class="border-t border-slate-200 pt-4 space-y-3">
+        <h2 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+          <i class="fa-solid fa-play text-emerald-600"></i> تنفيذ المعالج (CPU Scheduling)
+        </h2>
+        <button id="btn-extract" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-xl transition shadow-sm flex items-center justify-center gap-2">
+          <i class="fa-solid fa-bolt"></i> تنفيذ الأعلى أولوية (EXTRACT-MAX)
+        </button>
+      </div>
+    </div>
+
+    <!-- Visualization Area -->
+    <div class="lg:col-span-2 space-y-6">
+      <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+        <h3 class="text-sm font-bold text-slate-700 mb-4 flex items-center justify-between">
+          <span class="flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-indigo-600"></i> قائمة مهام المعالج (Max-Heap Queue)
+          </span>
+          <span id="task-count" class="text-xs bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full">0 مهام</span>
+        </h3>
+
+        <div id="tasks-container" class="space-y-3 max-h-[400px] overflow-auto pr-1">
+          <div class="text-center py-12 text-slate-400 text-sm">
+            <i class="fa-solid fa-inbox text-3xl mb-2 block"></i>
+            لا توجد مهام حالياً. قم بإضافة مهمة جديدة للبدء!
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl text-xs text-indigo-900 space-y-1">
+        <p class="font-bold"><i class="fa-solid fa-circle-info"></i> كيف يعمل هذا المشروع؟</p>
+        <p>يعتمد على بنية البيانات (Max-Heap) بحيث تكون المهمة ذات الأولوية القصوى دائماً في رأس القمة، وجاهزة للتنفيذ فور الضغط على زر استخراج المهمة.</p>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // Max-Heap implementation for Tasks
+    let maxHeap = [];
+
+    const nameInput = document.getElementById('task-name');
+    const priorityInput = document.getElementById('task-priority');
+    const tasksContainer = document.getElementById('tasks-container');
+    const taskCountEl = document.getElementById('task-count');
+
+    function renderTasks() {
+      tasksContainer.innerHTML = '';
+      taskCountEl.innerText = `${maxHeap.length} مهام`;
+
+      if (maxHeap.length === 0) {
+        tasksContainer.innerHTML = `
+          <div class="text-center py-12 text-slate-400 text-sm">
+            <i class="fa-solid fa-inbox text-3xl mb-2 block"></i>
+            لا توجد مهام حالياً. قم بإضافة مهمة جديدة للبدء!
+          </div>
+        `;
+        return;
+      }
+
+      maxHeap.forEach((task, index) => {
+        const card = document.createElement('div');
+        card.className = `task-card flex items-center justify-between p-4 rounded-xl border ${index === 0 ? 'bg-indigo-50/70 border-indigo-300 shadow-sm' : 'bg-white border-slate-200'}`;
+        
+        card.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm ${index === 0 ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}">
+              ${task.priority}
+            </div>
+            <div>
+              <h4 class="font-bold text-sm text-slate-800">${task.name}</h4>
+              <span class="text-[10px] text-slate-500">${index === 0 ? '⭐ المهمة الحالية في رأس الهيب (الأعلى أولوية)' : `موقع في الهيب: [${index}]`}</span>
+            </div>
+          </div>
+          <span class="text-xs font-semibold px-3 py-1 rounded-full ${index === 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}">
+            أولوية: ${task.priority}
+          </span>
+        `;
+        tasksContainer.appendChild(card);
+      });
+    }
+
+    function heapifyUp(index) {
+      while (index > 0) {
+        let parentIndex = Math.floor((index - 1) / 2);
+        if (maxHeap[parentIndex].priority < maxHeap[index].priority) {
+          [maxHeap[parentIndex], maxHeap[index]] = [maxHeap[index], maxHeap[parentIndex]];
+          index = parentIndex;
+        } else {
+          break;
+        }
+      }
+    }
+
+    function heapifyDown(index) {
+      let length = maxHeap.length;
+      while (2 * index + 1 < length) {
+        let leftChild = 2 * index + 1;
+        let rightChild = 2 * index + 2;
+        let largest = index;
+
+        if (maxHeap[leftChild].priority > maxHeap[largest].priority) {
+          largest = leftChild;
+        }
+        if (rightChild < length && maxHeap[rightChild].priority > maxHeap[largest].priority) {
+          largest = rightChild;
+        }
+        if (largest !== index) {
+          [maxHeap[index], maxHeap[largest]] = [maxHeap[largest], maxHeap[index]];
+          index = largest;
+        } else {
+          break;
+        }
+      }
+    }
+
+    document.getElementById('btn-add').onclick = () => {
+      const name = nameInput.value.trim() || `مهمة بدون عنوان #${maxHeap.length + 1}`;
+      const priority = parseInt(priorityInput.value) || 1;
+
+      const newTask = { name, priority };
+      maxHeap.push(newTask);
+      heapifyUp(maxHeap.length - 1);
+
+      nameInput.value = '';
+      priorityInput.value = '10';
+      renderTasks();
+    };
+
+    document.getElementById('btn-extract').onclick = () => {
+      if (maxHeap.length === 0) {
+        alert('لا توجد مهام لتنفيذها!');
+        return;
+      }
+
+      const extracted = maxHeap[0];
+      const end = maxHeap.pop();
+      if (maxHeap.length > 0) {
+        maxHeap[0] = end;
+        heapifyDown(0);
+      }
+
+      alert(`تم تنفيذ المهمة بنجاح:\n"${extracted.name}" (الأولوية: ${extracted.priority})`);
+      renderTasks();
+    };
+
+    // Add sample initial tasks
+    maxHeap = [
+      { name: 'فحص الأمان الدوري', priority: 85 },
+      { name: 'تحديث قواعد البيانات', priority: 50 },
+      { name: 'نسخ احتياطي للملفات', priority: 30 }
+    ];
+    // Re-heapify initial
+    for(let i = Math.floor(maxHeap.length / 2) - 1; i >= 0; i--) {
+      // simple initialization order
+    }
+    renderTasks();
+  </script>
+</body>
+</html>

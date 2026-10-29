@@ -1,0 +1,215 @@
+<!--  Task2  by Divide and conquer -->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Max Profit Finder - Divide and Conquer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+    body { font-family: 'Tajawal', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+  <header class="bg-slate-900 border-b border-slate-800 py-4 px-6 shadow-md">
+    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-chart-line text-amber-400 text-3xl"></i>
+        <div>
+          <h1 class="text-xl font-bold">محاكي أعلى أرباح الأسهم (Max Profit Finder)</h1>
+          <p class="text-xs text-slate-400">باستخدام خوارزمية Divide and Conquer والمقارنة بالبحث الخطي</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-3">
+        <button id="btn-generate" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg transition flex items-center gap-2 text-sm border border-slate-700">
+          <i class="fa-solid fa-rotate"></i> بيانات عشوائية جديدة
+        </button>
+        <button id="btn-calculate" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-5 py-2 rounded-lg transition flex items-center gap-2">
+          <i class="fa-solid fa-calculator"></i> حساب أعلى ربح
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    
+    <!-- لوحة التحكم والنتائج -->
+    <div class="lg:col-span-1 space-y-6 bg-slate-900 p-5 rounded-xl border border-slate-800 h-fit">
+      
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-2">أدخل أسعار الأسهم يدوياً (مفصولة بفاصلة)</label>
+        <input id="prices-input" type="text" value="100, 113, 110, 85, 105, 102, 86, 63, 81, 101, 94, 106, 101, 79, 94, 90, 97" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-400">
+      </div>
+
+      <div class="border-t border-slate-800 pt-4 space-y-3">
+        <h3 class="text-sm font-bold text-slate-300">النتائج التحليلية:</h3>
+        
+        <div class="p-3 bg-slate-950 rounded-lg border border-slate-800/80 space-y-1">
+          <span class="text-xs text-slate-400 block">أعلى ربح متوقع:</span>
+          <span id="res-profit" class="text-xl font-bold text-amber-400">0 $</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div class="p-3 bg-slate-950 rounded-lg border border-slate-800/80">
+            <span class="text-xs text-slate-400 block">يوم الشراء:</span>
+            <span id="res-buy" class="text-sm font-bold text-violet-400">-</span>
+          </div>
+          <div class="p-3 bg-slate-950 rounded-lg border border-slate-800/80">
+            <span class="text-xs text-slate-400 block">يوم البيع:</span>
+            <span id="res-sell" class="text-sm font-bold text-rose-400">-</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-slate-800 pt-4 text-xs text-slate-400 space-y-2">
+        <p><i class="fa-solid fa-circle-info text-amber-400"></i> خوارزمية Divide and Conquer تقسم الأيام إلى نصفين لإيجاد أفضل نقطة شراء وبيع بكفاءة عالية $O(n \log n)$.</p>
+      </div>
+
+    </div>
+
+    <!-- الرسم البياني التفاعلي -->
+    <div class="lg:col-span-2 bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
+      <h3 class="text-sm font-bold text-slate-300 mb-4 flex items-center gap-2">
+        <i class="fa-solid fa-chart-area text-amber-400"></i> الرسم البياني لأسعار الأسهم ونقاط الربح
+      </h3>
+      <div class="h-96 w-full">
+        <canvas id="stockChart"></canvas>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    let chartInstance = null;
+
+    function findCrossingProfit(prices, low, mid, high) {
+      let minPrice = Infinity;
+      let leftProfit = 0;
+      let bestBuy = low;
+      let bestSell = mid;
+
+      for (let i = mid; i >= low; i--) {
+        if (prices[i] < minPrice) {
+          minPrice = prices[i];
+          bestBuy = i;
+        }
+      }
+
+      let maxPrice = -Infinity;
+      let rightProfit = 0;
+
+      for (let i = mid + 1; i <= high; i++) {
+        if (prices[i] > maxPrice) {
+          maxPrice = prices[i];
+          bestSell = i;
+        }
+      }
+
+      return {
+        profit: (maxPrice - minPrice),
+        buy: bestBuy,
+        sell: bestSell
+      };
+    }
+
+    function findMaxProfitDC(prices, low, high) {
+      if (low === high) {
+        return { profit: 0, buy: low, sell: high };
+      }
+
+      let mid = Math.floor((low + high) / 2);
+
+      let leftRes = findMaxProfitDC(prices, low, mid);
+      let rightRes = findMaxProfitDC(prices, mid + 1, high);
+      let crossRes = findCrossingProfit(prices, low, mid, high);
+
+      if (leftRes.profit >= rightRes.profit && leftRes.profit >= crossRes.profit) {
+        return leftRes;
+      } else if (rightRes.profit >= leftRes.profit && rightRes.profit >= crossRes.profit) {
+        return rightRes;
+      } else {
+        return crossRes;
+      }
+    }
+
+    function calculateAndRender() {
+      const inputVal = document.getElementById('prices-input').value;
+      const prices = inputVal.split(',').map(num => parseFloat(num.trim())).filter(num => !isNaN(num));
+
+      if (prices.length < 2) {
+        alert('الرجاء إدخال سعرين على الأقل!');
+        return;
+      }
+
+      const result = findMaxProfitDC(prices, 0, prices.length - 1);
+
+      document.getElementById('res-profit').innerText = `${result.profit} $`;
+      document.getElementById('res-buy').innerText = `اليوم ${result.buy + 1} (السعر: ${prices[result.buy]})`;
+      document.getElementById('res-sell').innerText = `اليوم ${result.sell + 1} (السعر: ${prices[result.sell]})`;
+
+      renderChart(prices, result.buy, result.sell);
+    }
+
+    function renderChart(prices, buyIdx, sellIdx) {
+      const ctx = document.getElementById('stockChart').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+
+      const backgroundColors = prices.map((_, idx) => {
+        if (idx === buyIdx) return '#a78bfa'; // بنفسجي ناعم للشراء
+        if (idx === sellIdx) return '#fb7185'; // ورام/وردي ناعم للبيع
+        return '#fbbf24'; // أصفر ذهبي لباقي النقاط
+      });
+
+      const pointRadii = prices.map((_, idx) => (idx === buyIdx || idx === sellIdx ? 8 : 4));
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: prices.map((_, i) => `يوم ${i + 1}`),
+          datasets: [{
+            label: 'سعر السهم',
+            data: prices,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.08)',
+            fill: true,
+            tension: 0.3,
+            pointBackgroundColor: backgroundColors,
+            pointRadius: pointRadii,
+            pointHoverRadius: 10
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#cbd5e1', font: { family: 'Tajawal' } } }
+          },
+          scales: {
+            x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
+            y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } }
+          }
+        }
+      });
+    }
+
+    document.getElementById('btn-calculate').onclick = calculateAndRender;
+    document.getElementById('btn-generate').onclick = () => {
+      let randomPrices = [];
+      let current = 100;
+      for (let i = 0; i < 15; i++) {
+        current += Math.floor(Math.random() * 20) - 9;
+        randomPrices.push(Math.max(20, current));
+      }
+      document.getElementById('prices-input').value = randomPrices.join(', ');
+      calculateAndRender();
+    };
+
+    calculateAndRender();
+  </script>
+</body>
+</html>
