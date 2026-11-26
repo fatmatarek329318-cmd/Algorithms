@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Maze Lab — BFS · DFS · A* · Greedy</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f6f5f1;--fg:#1c1b19;--card:#fff;--wall:#2b3a42;--path:#fff;--sol:#e8743b;--st:#2e9e5b;--en:#c0392b;--btn:#2b3a42;--btnfg:#fff;--mut:#6b6a66;--ln:#d9d7d0}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#14161a;--fg:#ececea;--card:#1e2126;--wall:#0b0d10;--path:#2a2f36;--sol:#f08a4b;--btn:#e8e6e1;--btnfg:#14161a;--mut:#9a9893;--ln:#343941}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#14161a;--fg:#ececea;--card:#1e2126;--wall:#0b0d10;--path:#2a2f36;--sol:#f08a4b;--btn:#e8e6e1;--btnfg:#14161a;--mut:#9a9893;--ln:#343941}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;padding:14px;max-width:540px;margin-inline:auto}
+h1{font-size:19px;margin:4px 0 4px}
+p.sub{margin:0 0 10px;font-size:12.5px;color:var(--mut)}
+canvas{width:100%;aspect-ratio:1;border-radius:12px;background:var(--card);display:block;touch-action:none}
+.row{display:flex;gap:6px;margin:8px 0;flex-wrap:wrap}
+button{flex:1;min-width:72px;padding:11px 6px;border:1px solid transparent;border-radius:10px;background:var(--btn);color:var(--btnfg);font-size:14px;font-weight:600}
+button.alt{background:var(--card);color:var(--fg);border-color:var(--ln)}
+button.on{outline:3px solid var(--sol)}
+label{font-size:13px;display:flex;align-items:center;gap:6px;flex:1;min-width:140px}
+input[type=range]{flex:1;min-width:0}
+.box{background:var(--card);border-radius:10px;padding:10px;font-size:13px;margin-top:8px}
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:7px 4px;text-align:center;border-bottom:1px solid var(--ln)}
+th{color:var(--mut);font-weight:600;font-size:12px}
+td:first-child,th:first-child{text-align:start}
+.best{color:var(--st);font-weight:700}
+.hint{font-size:12px;color:var(--mut);line-height:1.8;margin-top:8px}
+</style>
+</head>
+<body>
+<h1>🧩 Maze Lab — BFS · DFS · A* · Greedy</h1>
+<p class="sub">ارسم حواجز بإصبعك، واسحب 🟩 و🟥 لتغيير البداية والنهاية.</p>
+<canvas id="c" width="630" height="630"></canvas>
+<div class="row" id="algs">
+<button data-a="bfs" class="on">BFS</button>
+<button data-a="dfs" class="alt">DFS</button>
+<button data-a="astar" class="alt">A*</button>
+<button data-a="greedy" class="alt">Greedy</button>
+</div>
+<div class="row">
+<button id="go">▶ ابدأ</button>
+<button id="cmp" class="alt">⚖ قارن الكل</button>
+<button id="clr" class="alt">مسح المسار</button>
+</div>
+<div class="row">
+<button id="new" class="alt">🎲 متاهة جديدة</button>
+<button id="emp" class="alt">⬜ فاضية</button>
+</div>
+<div class="row">
+<label>الحجم <input id="sz" type="range" min="11" max="41" step="2" value="25"></label>
+<label>السرعة <input id="sp" type="range" min="1" max="40" value="10"></label>
+</div>
+<div class="box" id="st">اختر خوارزمية واضغط ابدأ.</div>
+<div class="box tbl"><table>
+<thead><tr><th>الخوارزمية</th><th>زيارات</th><th>المسار</th><th>الوقت</th></tr></thead>
+<tbody id="tb"></tbody></table></div>
+<div class="hint"><b>BFS</b> يضمن الأقصر · <b>DFS</b> أي مسار · <b>A*</b> يضمن الأقصر بزيارات أقل (heuristic = Manhattan) · <b>Greedy</b> سريع لكن لا يضمن الأقصر. جرّب تغلق ممرًا بحاجز وشوف كيف تتصرف كل واحدة.</div>
+<script>
+const cv=document.getElementById('c'),ctx=cv.getContext('2d'),$=id=>document.getElementById(id);
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v);
+const NAMES={bfs:'BFS',dfs:'DFS',astar:'A*',greedy:'Greedy'};
+let N,S,g,start,end,order=[],shown=0,sol=[],timer,alg='bfs',drag=null,paint=null,res={};
+function init(open){
+  N=+$('sz').value;S=cv.width/N;start=[1,1];end=[N-2,N-2];
+  g=Array.from({length:N},()=>Array(N).fill(open?0:1));
+  if(open){for(let i=0;i<N;i++){g[0][i]=g[N-1][i]=g[i][0]=g[i][N-1]=1}}
+  else{
+    const st=[[1,1]];g[1][1]=0;
+    while(st.length){
+      const [x,y]=st[st.length-1];
+      const d=[[2,0],[-2,0],[0,2],[0,-2]].sort(()=>Math.random()-.5).filter(([dx,dy])=>{const a=x+dx,b=y+dy;return a>0&&b>0&&a<N-1&&b<N-1&&g[b][a]==1});
+      if(!d.length){st.pop();continue}
+      const [dx,dy]=d[0];g[y+dy/2][x+dx/2]=0;g[y+dy][x+dx]=0;st.push([x+dx,y+dy]);
+    }
+    for(let i=0;i<N;i++){const x=1+Math.floor(Math.random()*(N-2)),y=1+Math.floor(Math.random()*(N-2));if((x+y)%2==1)g[y][x]=0}
+  }
+  res={};tbl();clear();
+}
+function clear(){clearInterval(timer);order=[];shown=0;sol=[];draw()}
+function draw(){
+  ctx.fillStyle=css('--path');ctx.fillRect(0,0,cv.width,cv.height);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(g[y][x]){ctx.fillStyle=css('--wall');ctx.fillRect(x*S,y*S,S+.5,S+.5)}
+  const T=Math.max(order.length,1);
+  for(let i=0;i<shown;i++){const k=order[i];ctx.fillStyle=`hsl(${210-i/T*70},75%,${55}%)`;ctx.fillRect((k%N)*S,Math.floor(k/N)*S,S+.5,S+.5)}
+  ctx.fillStyle=css('--sol');sol.forEach(([x,y])=>ctx.fillRect(x*S+S*.2,y*S+S*.2,S*.6,S*.6));
+  ctx.fillStyle=css('--st');ctx.fillRect(start[0]*S,start[1]*S,S,S);
+  ctx.fillStyle=css('--en');ctx.fillRect(end[0]*S,end[1]*S,S,S);
+}
+function solve(m){
+  const t0=performance.now(),sk=start[1]*N+start[0],ek=end[1]*N+end[0];
+  const H=k=>Math.abs(k%N-end[0])+Math.abs(Math.floor(k/N)-end[1]);
+  const prev=new Map(),dist=new Map([[sk,0]]),closed=new Set(),ord=[];let open=[sk];
+  while(open.length){
+    let k;
+    if(m=='bfs')k=open.shift();else if(m=='dfs')k=open.pop();
+    else{let bi=0,bv=1e9;for(let i=0;i<open.length;i++){const f=(m=='astar'?dist.get(open[i]):0)+H(open[i]);if(f<bv){bv=f;bi=i}}k=open.splice(bi,1)[0]}
+    if(closed.has(k))continue;closed.add(k);ord.push(k);if(k==ek)break;
+    const x=k%N,y=Math.floor(k/N);
+    for(const [dx,dy] of [[1,0],[0,1],[-1,0],[0,-1]]){
+      const a=x+dx,b=y+dy;if(a<0||b<0||a>=N||b>=N||g[b][a])continue;
+      const n=b*N+a;if(closed.has(n))continue;const nd=dist.get(k)+1;
+      if(!dist.has(n)||(m=='astar'&&nd<dist.get(n))){dist.set(n,nd);prev.set(n,k);open.push(n)}
+    }
+  }
+  let path=[];
+  if(closed.has(ek)){let k=ek;while(k!==undefined){path.push([k%N,Math.floor(k/N)]);k=prev.get(k)}}
+  return {ord,path,ms:performance.now()-t0};
+}
+function record(m,r){res[m]={v:r.ord.length,l:r.path.length?r.path.length-1:null,ms:r.ms};tbl()}
+function tbl(){
+  const ls=Object.values(res).map(r=>r.l).filter(l=>l!=null),best=ls.length?Math.min(...ls):null;
+  $('tb').innerHTML=Object.keys(NAMES).filter(m=>res[m]).map(m=>{const r=res[m];
+    return `<tr><td>${NAMES[m]}</td><td>${r.v}</td><td class="${r.l===best?'best':''}">${r.l==null?'لا حل':r.l}</td><td>${r.ms.toFixed(1)}ms</td></tr>`}).join('')||'<tr><td colspan="4" style="color:var(--mut)">لا نتائج بعد</td></tr>';
+}
+function go(){
+  clear();const r=solve(alg);
+  order=r.ord;record(alg,r);$('st').textContent=`${NAMES[alg]} يبحث...`;
+  timer=setInterval(()=>{
+    shown=Math.min(order.length,shown+Math.ceil(+$('sp').value*N/25));
+    if(shown>=order.length){clearInterval(timer);sol=r.path;
+      $('st').textContent=r.path.length?`${NAMES[alg]}: زار ${order.length} خلية، المسار ${r.path.length-1} خطوة ✅`:`${NAMES[alg]}: لا يوجد مسار ❌`}
+    draw();
+  },30);
+}
+function cmp(){
+  clear();let bestR=null;
+  for(const m of Object.keys(NAMES)){const r=solve(m);record(m,r);if(m=='astar')bestR=r}
+  order=bestR.ord;shown=order.length;sol=bestR.path;draw();
+  $('st').textContent='تمت المقارنة — الخريطة تعرض A*. شوف الجدول 👇';
+}
+function cell(e){const r=cv.getBoundingClientRect();return [Math.floor((e.clientX-r.left)/r.width*N),Math.floor((e.clientY-r.top)/r.height*N)]}
+cv.addEventListener('pointerdown',e=>{
+  cv.setPointerCapture(e.pointerId);const [x,y]=cell(e);
+  if(x==start[0]&&y==start[1])drag='s';else if(x==end[0]&&y==end[1])drag='e';
+  else if(x>0&&y>0&&x<N-1&&y<N-1){paint=g[y][x]?0:1;g[y][x]=paint;clear()}
+});
+cv.addEventListener('pointermove',e=>{
+  if(!drag&&paint===null)return;const [x,y]=cell(e);
+  if(x<1||y<1||x>=N-1||y>=N-1)return;
+  if(drag){if(g[y][x])return;(drag=='s'?start:end).splice(0,2,x,y);clear()}
+  else{const same=[x,y]+''==start+''||[x,y]+''==end+'';if(!same&&g[y][x]!==paint){g[y][x]=paint;clear()}}
+});
+const up=()=>{drag=null;paint=null};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+$('algs').onclick=e=>{const a=e.target.dataset.a;if(!a)return;alg=a;[...$('algs').children].forEach(b=>b.className=b.dataset.a==a?'on':'alt')};
+$('go').onclick=go;$('cmp').onclick=cmp;$('clr').onclick=clear;
+$('new').onclick=()=>init(false);$('emp').onclick=()=>init(true);$('sz').onchange=()=>init(false);
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change',draw);
+init(false);
+</script>
+</body>
+</html>
